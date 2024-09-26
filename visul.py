@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 # Concatenate the latent representations
@@ -10,7 +11,7 @@ scaler = StandardScaler()
 latents_scaled = scaler.fit_transform(latents)
 
 # Perform PCA on the latent representations
-pca = TSNE(n_components=2, n_jobs=-1, verbose=1)
+pca = PCA(n_components=2)
 
 components = pca.fit_transform(latents_scaled)
 
@@ -36,7 +37,7 @@ scaler = StandardScaler()
 latents_scaled = scaler.fit_transform(latents)
 
 # Perform PCA on the latent representations
-pca = TSNE(n_components=2, n_jobs=-1, verbose=1)
+pca = PCA(n_components=2)
 
 components = pca.fit_transform(latents_scaled)
 
