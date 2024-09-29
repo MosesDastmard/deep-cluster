@@ -1,5 +1,6 @@
 import tensorflow as tf
 from src.data.mnist import test_dataset
+from src.data.fashion import test_dataset as fashion_test_dataset
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
@@ -21,9 +22,17 @@ for images, labels in test_dataset.batch(1024):
     latent_df["label"] = labels.numpy()
     latents.append(latent_df)
 
+for images, labels in fashion_test_dataset.batch(1024):
+    latent = model.predict(images)
+    latent_df = pd.DataFrame(
+        latent, columns=[f"latent_{i}" for i in range(latent.shape[1])]
+    )
+    latent_df["label"] = -1
+    latents.append(latent_df)
+
 # Concatenate the latent representations
 latents_df = pd.concat(latents, ignore_index=True)
-
+latents_df.to_parquet("latents.parquet")
 latents = latents_df.drop("label", axis=1)
 
 
@@ -51,7 +60,7 @@ plt.scatter(
     components[:, 0],
     components[:, 1],
     c=latents_df["label"],
-    cmap="viridis",
+    cmap="tab10",
     s=200,
 )
 plt.show()

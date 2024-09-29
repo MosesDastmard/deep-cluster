@@ -14,7 +14,7 @@ early_stopping = callbacks.EarlyStopping(
 )
 model.fit(
     train_dataset,
-    epochs=50,
+    epochs=500,
     validation_data=test_dataset,
     callbacks=[early_stopping],
 )

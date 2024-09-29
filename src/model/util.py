@@ -51,63 +51,8 @@ class SimilarityLayer(layers.Layer):
         # Split inputs into two tensors
         vector_a, vector_b = inputs
         # Compute the L2 norms (magnitudes) of each vector
+        abs_diff = tf.abs(vector_a - vector_b)
+        distance = 1 - tf.reduce_sum(abs_diff, axis=-1, keepdims=True)
 
-        norm_a = tf.norm(vector_a, axis=-1)
-        norm_b = tf.norm(vector_b, axis=-1)
-        dot_product = tf.reduce_sum(tf.multiply(vector_a, vector_b), axis=-1) / (
-            norm_a * norm_b + 1e-10
-        )
-
-        similarity = SimilarityLayer.Sigmoid(dot_product)
+        similarity = SimilarityLayer.Sigmoid(distance)
         return similarity
-
-
-if __name__ == "__main__":
-    # Example: Cosine of 45 degrees (converted to radians)
-    encoder = make_encoder(latent_dim)
-    # discriminator = make_discriminator(latent_dim)
-    model = make_model(encoder)
-    model.summary()
-
-    optimizer = tf.keras.optimizers.SGD(
-        learning_rate=1e-3,
-        momentum=0.95,  # Momentum helps in smoothing out the updates
-        nesterov=True,  # Nesterov momentum is often used in deep learning for better convergence)
-    )
-    model.compile(
-        optimizer=optimizer,
-        loss={
-            "dense": "binary_crossentropy",
-            "similarity": "binary_crossentropy",
-        },
-        loss_weights={
-            "dense": 1.0,
-            "similarity": 1.0,
-        },
-        metrics={
-            "dense": ["accuracy"],  # Add accuracy for the 'dense' output
-            "similarity": ["mae"],  # Add mae for the 'similarity' output
-        },
-    )
-
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=50,
-        restore_best_weights=True,
-        mode="min",
-    )
-    model.fit(
-        model_train_dataset,
-        epochs=50,
-        validation_data=model_test_dataset,
-        callbacks=[early_stopping],
-    )
-
-    # onel = models.Sequential(name="onel")
-    # onel.add(encoder)
-    # onel.add(discriminator)
-
-    encoder.save("encoder.keras")
-    # discriminator.save("discriminator.keras")
-    model.save("model.keras")
-    # onel.save("onel.keras")
