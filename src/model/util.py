@@ -52,7 +52,7 @@ class SimilarityLayer(layers.Layer):
         vector_a, vector_b = inputs
         # Compute the L2 norms (magnitudes) of each vector
         abs_diff = tf.abs(vector_a - vector_b)
-        distance = 1 - tf.reduce_sum(abs_diff, axis=-1, keepdims=True)
+        distance = 1 - tf.reduce_mean(abs_diff, axis=-1, keepdims=True)
 
         similarity = SimilarityLayer.Sigmoid(distance)
         return similarity

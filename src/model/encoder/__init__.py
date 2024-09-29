@@ -25,6 +25,16 @@ def make_encoder(input_shape, latent_dim):
     return model
 
 
+def mask_mse_loss(y_true, y_pred):
+    mask = tf.cast(y_true == 1, tf.float32)
+    return tf.reduce_mean(tf.square(mask * (y_true - y_pred)))
+
+
+def mask_mae_loss(y_true, y_pred):
+    mask = tf.cast(y_true == 1, tf.float32)
+    return tf.reduce_mean(tf.abs(mask * (y_true - y_pred)))
+
+
 def make_model(encoder):
     input_a = layers.Input(shape=encoder.input_shape[1:], name="images_a")
     input_b = layers.Input(shape=encoder.input_shape[1:], name="images_b")
@@ -60,11 +70,11 @@ def make_model(encoder):
         optimizer=optimizer,
         loss={
             "dense": "binary_crossentropy",
-            "similarity": "binary_crossentropy",
+            "similarity": mask_mae_loss,
         },
         loss_weights={
             "dense": 1.0,
-            "similarity": 1.0,
+            "similarity": 5.0,
         },
         metrics={
             "dense": ["accuracy"],  # Add accuracy for the 'dense' output
