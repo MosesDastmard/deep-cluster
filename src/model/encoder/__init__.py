@@ -1,9 +1,35 @@
 from tensorflow.keras import layers, models
 import tensorflow as tf
-from src.data.util import data_augmentation
-from src.model.util import L2NormLayer, SimilarityLayer
+from src.model.util import (
+    ContrastiveLoss,
+    ContrastiveNegativeMetric,
+    ContrastivePositiveMetric,
+    L2NormLayer,
+    SimilarityLayer,
+)
+from src.model.discriminator import make_discriminator
+from tensorflow.keras.initializers import Constant
 
 relu_layer = layers.ReLU(negative_slope=0.1)
+
+
+@tf.keras.utils.register_keras_serializable()
+class CosineDistance(tf.keras.layers.Layer):
+    def call(self, inputs):
+        vector_a, vector_b = inputs
+        return tf.reduce_sum(tf.multiply(vector_a, vector_b), axis=-1)
+
+
+@tf.keras.utils.register_keras_serializable()
+class EuqDistance(tf.keras.layers.Layer):
+    def call(self, inputs):
+        vector_a, vector_b = inputs
+        return (
+            tf.sqrt(
+                tf.reduce_sum(tf.square(vector_a - vector_b), axis=1, keepdims=True)
+            )
+            + 1e-6
+        )
 
 
 # Define the CNN encoder model
@@ -11,81 +37,64 @@ def make_encoder(input_shape, latent_dim):
     model = models.Sequential(name="encoder")
     # Convolutional layer with 32 filters, kernel size of 3x3, and ReLU activation
     model.add(layers.Input(shape=input_shape))
-    model.add(layers.Conv2D(32, (5, 5)))
-    model.add(relu_layer)
+    model.add(layers.Conv2D(64, (5, 5), activation="leaky_relu"))
+    model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
-    model.add(layers.Conv2D(64, (5, 5)))
-    model.add(relu_layer)
-    model.add(layers.Conv2D(128, (3, 3)))
-    model.add(relu_layer)
+    model.add(layers.Conv2D(32, (5, 5), activation="leaky_relu"))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Conv2D(8, (3, 3), activation="leaky_relu"))
+    model.add(layers.BatchNormalization())
+    # model.add(layers.GlobalAveragePooling2D())
     model.add(layers.Flatten())
-    model.add(layers.Dense(4 * latent_dim, activation="relu"))
-    model.add(layers.Dense(2 * latent_dim, activation="relu"))
+    model.add(layers.Dense(4 * latent_dim, activation="leaky_relu"))
     model.add(layers.Dense(1 * latent_dim, activation="tanh"))
+    model.add(L2NormLayer())
     return model
 
 
-def mask_mse_loss(y_true, y_pred):
-    mask = tf.cast(y_true == 1, tf.float32)
-    return tf.reduce_mean(tf.square(mask * (y_true - y_pred)))
-
-
-def mask_mae_loss(y_true, y_pred):
-    mask = tf.cast(y_true == 1, tf.float32)
-    return tf.reduce_mean(tf.abs(mask * (y_true - y_pred)))
-
-
-def make_model(encoder):
+def make_ecoder_train_model(encoder):
     input_a = layers.Input(shape=encoder.input_shape[1:], name="images_a")
     input_b = layers.Input(shape=encoder.input_shape[1:], name="images_b")
 
-    input_a_ = data_augmentation(input_a)
-    input_b_ = data_augmentation(input_b)
-
     # Get the encoded representations of the inputs
-    encoded_a = encoder(input_a_)
-    encoded_b = encoder(input_b_)
+    encoded_a = encoder(input_a)
+    encoded_b = encoder(input_b)
 
-    # Compute the absolute difference between the two feature vectors
-    abs_layer = tf.keras.layers.Lambda(
-        lambda tensors: tf.abs(tensors[0] - tensors[1]), name="abs_diff"
-    )
-    abs_diff = abs_layer([encoded_a, encoded_b])
-    output = layers.Dense(1, activation="sigmoid", name="dense")(abs_diff)
-    similarity_layer = SimilarityLayer(name="similarity")
-    similarity = similarity_layer([encoded_a, encoded_b])
-    model = models.Model(
+    # Compute the Euclidean distance between the two output vectors
+    euclidian_distance = EuqDistance()([encoded_a, encoded_b])
+
+    cosine_distance = CosineDistance()([encoded_a, encoded_b])
+
+    encoder_train_model = models.Model(
         inputs={
             "images_a": input_a,
             "images_b": input_b,
         },
-        outputs={"dense": output, "similarity": similarity},
+        outputs=cosine_distance,
     )
     optimizer = tf.keras.optimizers.SGD(
-        learning_rate=1e-3,
+        learning_rate=1.0e-6,  # Learning rate
+        clipnorm=10.0,  # Clip the gradients by norm
         momentum=0.95,  # Momentum helps in smoothing out the updates
         nesterov=True,  # Nesterov momentum is often used in deep learning for better convergence)
     )
-    model.compile(
+    encoder_train_model.compile(
         optimizer=optimizer,
-        loss={
-            "dense": "binary_crossentropy",
-            "similarity": mask_mae_loss,
-        },
-        loss_weights={
-            "dense": 1.0,
-            "similarity": 5.0,
-        },
-        metrics={
-            "dense": ["accuracy"],  # Add accuracy for the 'dense' output
-            "similarity": ["mae"],  # Add mae for the 'similarity' output
-        },
+        loss=ContrastiveLoss,
+        metrics=[ContrastivePositiveMetric, ContrastiveNegativeMetric],
     )
+    return encoder, encoder_train_model
 
-    return model
+
+def make_discriminator_train_model(discriminator):
+    return None, None
 
 
 def get_models(input_shape, latent_dim=64):
     encoder = make_encoder(input_shape, latent_dim)
-    model = make_model(encoder)
-    return encoder, model
+    encoder, encoder_train_model = make_ecoder_train_model(encoder)
+    discriminator = make_discriminator(encoder.output_shape[-1])
+    discriminator, discriminator_train_model = make_discriminator_train_model(
+        discriminator
+    )
+    return encoder, encoder_train_model, discriminator, discriminator_train_model

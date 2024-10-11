@@ -1,6 +1,6 @@
 from tensorflow.keras.datasets import mnist
 import tensorflow as tf
-from ..util import get_encoder_dataset__, get_discriminator_dataset__
+from ..util import SiameseGenerator
 
 # Load the MNIST dataset
 (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
@@ -16,17 +16,14 @@ train_images = train_images[
 ]  # Adding the channel dimension for grayscale
 test_images = test_images[..., tf.newaxis]
 
-# Convert training and testing datasets into tf.data.Dataset
-train_dataset = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
-test_dataset = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
+
+train_size = len(train_images)
+test_size = len(test_images)
 
 
 def get_encoder_dataset(batch_size):
-    return get_encoder_dataset__(train_dataset, test_dataset, INPUT_SHAPE, batch_size)
-
-
-def get_discriminator_dataset(encoder, batch_size):
-    encoder.trainable = False
-    return get_discriminator_dataset__(
-        encoder, train_dataset, test_dataset, INPUT_SHAPE, batch_size
+    return (
+        SiameseGenerator(train_images, train_labels, batch_size=batch_size),
+        SiameseGenerator(test_images, test_labels, batch_size=batch_size),
+        INPUT_SHAPE,
     )

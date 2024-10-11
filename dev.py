@@ -1,30 +1,19 @@
-from sklearn import svm
+import tensorflow as tf
+import math
 import numpy as np
-from src.data.mnist import train_dataset, test_dataset
-from src.data.fashion import test_dataset as fashion_test_dataset
-from tensorflow.keras.models import load_model
-
-encoder = load_model("encoder.keras")
-X_train = encoder.predict(train_dataset.map(lambda x, y: x).batch(32))
-
-# Train the One-Class SVM
-model = svm.OneClassSVM(kernel="rbf", gamma=0.1, nu=0.05)
-model.fit(X_train)
-
-# Testing with new data (some anomalies)
-Xmnist_test = encoder.predict(test_dataset.map(lambda x, y: x).batch(32))
-Xfashion_test = encoder.predict(fashion_test_dataset.map(lambda x, y: x).batch(32))
-X_test = np.concatenate([Xmnist_test, Xfashion_test])
-labels = np.concatenate(
-    [np.ones(Xmnist_test.shape[0]), -np.ones(Xfashion_test.shape[0])]
-)
-predictions = model.predict(X_test)
-print((predictions == labels).mean())
 
 
-discriminator = load_model("discriminator.keras")
-predictions = discriminator.predict(X_test)
-labels = np.concatenate(
-    [np.ones(Xmnist_test.shape[0]), np.zeros(Xfashion_test.shape[0])]
-)
-print(((predictions > 0.75).astype(int).flatten() == labels).mean())
+@tf.keras.utils.register_keras_serializable()
+def ContrastivePositiveMetric(y_true, y_pred):
+    # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
+    similar_margin = np.cos(math.radians(5))
+    sim_pen = tf.where(y_pred > similar_margin, 1.0, 0.0)
+    y_true = tf.cast(y_true, tf.float32)
+    return tf.reduce_sum((1.0 - y_true) * sim_pen) / tf.reduce_sum((1.0 - y_true))
+
+
+x = ContrastivePositiveMetric(
+    tf.constant([0, 1, 0, 1]), tf.constant([1.0, 0.2, 1.0, 1.0])
+)  # <1>
+
+print(x)

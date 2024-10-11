@@ -56,3 +56,45 @@ class SimilarityLayer(layers.Layer):
 
         similarity = SimilarityLayer.Sigmoid(distance)
         return similarity
+
+
+@tf.keras.utils.register_keras_serializable()
+def ContrastiveLoss(y_true, y_pred):
+    # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
+    sim_err = -(y_pred - 1.0) / 2
+    dissimilar_margin = np.cos(math.radians(30))
+    dis_err = tf.maximum(0.0, -(dissimilar_margin - y_pred))
+    return tf.reduce_mean(y_true * dis_err + (1 - y_true) * sim_err)
+
+
+@tf.keras.utils.register_keras_serializable()
+def ContrastivePositiveMetric(y_true, y_pred):
+    # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
+    # count postive samples
+    if y_pred.shape != y_true.shape:
+        raise ValueError(
+            "y_pred and y_true must have the same shape, got %s and %s"
+            % (y_pred.shape, y_true.shape)
+        )
+    # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
+    similar_margin = np.cos(math.radians(5))
+    sim_pen = tf.where(y_pred > similar_margin, 1.0, 0.0)
+    y_true = tf.cast(y_true, tf.float32)
+    # return tf.reduce_sum((1.0 - y_true))
+    return tf.reduce_sum((1.0 - y_true) * sim_pen) / tf.reduce_sum((1.0 - y_true))
+
+
+@tf.keras.utils.register_keras_serializable()
+def ContrastiveNegativeMetric(y_true, y_pred):
+    if y_pred.shape != y_true.shape:
+        raise ValueError(
+            "y_pred and y_true must have the same shape, got %s and %s"
+            % (y_pred.shape, y_true.shape)
+        )
+    # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
+    dissimilar_margin = np.cos(math.radians(30))
+    dis_pen = tf.where(y_pred < dissimilar_margin, 1.0, 0.0)
+    y_pred = tf.cast(y_pred, tf.float32)
+    y_true = tf.cast(y_true, tf.float32)
+    # return tf.reduce_sum((y_true))
+    return tf.reduce_sum(y_true * dis_pen) / tf.reduce_sum(y_true)
