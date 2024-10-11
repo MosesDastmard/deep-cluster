@@ -73,9 +73,9 @@ def make_ecoder_train_model(encoder):
         outputs=cosine_distance,
     )
     optimizer = tf.keras.optimizers.SGD(
-        learning_rate=1.0e-6,  # Learning rate
+        learning_rate=1.0e-2,  # Learning rate
         clipnorm=10.0,  # Clip the gradients by norm
-        momentum=0.95,  # Momentum helps in smoothing out the updates
+        momentum=0.99,  # Momentum helps in smoothing out the updates
         nesterov=True,  # Nesterov momentum is often used in deep learning for better convergence)
     )
     encoder_train_model.compile(
