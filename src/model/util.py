@@ -62,7 +62,7 @@ class SimilarityLayer(layers.Layer):
 def ContrastiveLoss(y_true, y_pred):
     # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
     sim_err = -(y_pred - 1.0) / 2
-    dissimilar_margin = np.cos(math.radians(30))
+    dissimilar_margin = np.cos(math.radians(90))
     dis_err = tf.maximum(0.0, -(dissimilar_margin - y_pred))
     return tf.reduce_mean(y_true * dis_err + (1 - y_true) * sim_err)
 
@@ -92,7 +92,7 @@ def ContrastiveNegativeMetric(y_true, y_pred):
             % (y_pred.shape, y_true.shape)
         )
     # y_true = 0 if the pair is similar, 1 if the pair is dissimilar
-    dissimilar_margin = np.cos(math.radians(30))
+    dissimilar_margin = np.cos(math.radians(90))
     dis_pen = tf.where(y_pred < dissimilar_margin, 1.0, 0.0)
     y_pred = tf.cast(y_pred, tf.float32)
     y_true = tf.cast(y_true, tf.float32)

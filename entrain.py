@@ -7,7 +7,7 @@ import tensorflow as tf
 import os
 
 batch_size = 256
-latent_dim = 2
+latent_dim = 64
 train_dataset, test_dataset, input_shape = get_encoder_dataset(batch_size)
 encoder, encoder_train_model, _, _ = get_models(input_shape, latent_dim=latent_dim)
 print(encoder.summary())
